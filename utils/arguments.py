@@ -46,6 +46,6 @@ parser.add_argument('--test_mode', type=str, help='Mode of the testing (seen, si
 parser.add_argument('--collision_thresh', type=float, default=0,
                     help='Collision threshold in collision detection [default: 0], if used, set to 0.01')
 parser.add_argument('--inference', action='store_true', help='Whether to inference')
-
+parser.add_argument('--example_path', type=str, default='example_data', help='Path to example data for demo')
 
 cfgs = parser.parse_args()
