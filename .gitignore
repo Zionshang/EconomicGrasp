@@ -4,3 +4,9 @@
 /.idea
 /results
 __pycache__
+.vscode
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg

@@ -18,11 +18,11 @@ If you have any questions, feel free to contact me by wuxm65@mail2.sysu.edu.cn.
 
 <img src="imgs/framework.png" alt="model_framework" style="zoom:50%;" />
 
-## How to Run
+## How to Run (For NVIDIA Blackwell architecture GPUs (RTX 5090, 5080, 5070, etc.).)
 
 ### Dependencies Installation
 
-Please follow the instructions to ensure successful installation, which supports the Python 3.10 and CUDA 12+ environment.
+Please follow the instructions to ensure successful installation, which supports the Python 3.10 and CUDA 12.8 environment.
 
 #### PyTorch & MinkowskiEngine
 
@@ -30,22 +30,15 @@ Install PyTorch.
 
 ```bash
 conda install openblas-devel -c anaconda
-conda install pytorch==2.5.1 torchvision==0.20.1 pytorch-cuda=12.1 -c pytorch -c nvidia
+conda install -c nvidia/label/cuda-12.8.0 cuda-toolkit
+pip install torch==2.7.0 torchvision==0.22.0 --index-url https://download.pytorch.org/whl/cu128
 ```
 
-Install the MinkowskiEngine.
-
+Install the MinkowskiEngine. (This version is adds compatibility for **CUDA Toolkit 12.8+** and **NVIDIA Blackwell architecture GPUs** (RTX 5090, 5080, 5070, etc.).)
 ```bash
-git clone https://github.com/NVIDIA/MinkowskiEngine.git
-```
-
-Change the Minkowski Engine code based on step5 in [Minkowski-CUDA12](https://github.com/Julie-tang00/Common-envs-issues/blob/main/Cuda12-MinkowskiEngine) to support CUDA 12+. And then run the following code to install.
-
-```bash
-cd MinkowskiEngine
-pip install --upgrade setuptools==59.8.0
+cd libs/MinkowskiEngine
 conda install ninja
-python setup.py install --blas_include_dirs=${CONDA_PREFIX}/include --blas=openblas
+python setup.py install
 ```
 
 #### Pip Dependency
@@ -53,6 +46,7 @@ python setup.py install --blas_include_dirs=${CONDA_PREFIX}/include --blas=openb
 Install dependent packages via Pip.
 
 ```bash
+# cd to the root of economicgrasp
 pip install -r requirements.txt
 ```
 
@@ -61,7 +55,7 @@ pip install -r requirements.txt
 Compile and install pointnet2 operators.
 
 ```bash
-cd pointnet2
+cd libs/pointnet2
 python setup.py install
 ```
 
@@ -70,7 +64,7 @@ python setup.py install
 Compile and install knn operator.
 
 ```bash
-cd knn
+cd libs/knn
 python setup.py install
 ```
 
@@ -90,7 +84,7 @@ Generate graspness. Make sure you have downloaded the orginal dataset from [Gras
 
 ```bash
 cd dataset
-python generate_graspness.py --dataset_root /home/xiaoming/dataset/graspnet --camera_type kinect
+python generate_graspness.py --dataset_root /home/xiaoming/dataset/graspnet --camera_type realsense
 ```
 
 ### Sparse Dataset Generation

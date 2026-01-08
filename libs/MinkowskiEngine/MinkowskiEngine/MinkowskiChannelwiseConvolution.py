@@ -151,8 +151,8 @@ class MinkowskiChannelwiseConvolution(MinkowskiModuleBase):
         :attr:`coords` ((`torch.IntTensor`, `MinkowskiEngine.CoordinateMapKey`,
         `MinkowskiEngine.SparseTensor`), optional): If provided, generate
         results on the provided coordinates. None by default.
-        """
 
+        """
         assert isinstance(input, SparseTensor)
         assert input.D == self.dimension
         assert (
