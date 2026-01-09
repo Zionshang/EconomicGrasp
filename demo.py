@@ -18,7 +18,25 @@ from utils.data_utils import CameraInfo, create_point_cloud_from_depth_image
 from graspnetAPI import GraspGroup
 from utils.collision_detector import ModelFreeCollisionDetector
 
-def load_data(example_path, num_points=20000):
+def get_net(device):
+    print("Initializing model...")
+    net = economicgrasp(seed_feat_dim=512, is_training=False)
+    net.to(device)
+    
+    if cfgs.checkpoint_path is None:
+        raise ValueError("--checkpoint_path argument is required.")
+        
+    print(f"Loading checkpoint from {cfgs.checkpoint_path}...")
+    if not os.path.isfile(cfgs.checkpoint_path):
+        raise FileNotFoundError(f"Checkpoint file not found at {cfgs.checkpoint_path}")
+
+    checkpoint = torch.load(cfgs.checkpoint_path, map_location=device)
+    net.load_state_dict(checkpoint['model_state_dict'])
+    net.eval()
+    return net
+
+def get_and_process_data(example_path, device, num_points=20000):
+    print(f"Loading data from {example_path}...")
     color_path = os.path.join(example_path, 'color.png')
     depth_path = os.path.join(example_path, 'depth.png')
     meta_path = os.path.join(example_path, 'meta.mat')
@@ -76,50 +94,18 @@ def load_data(example_path, num_points=20000):
     cloud_sampled = cloud_masked[idxs]
     color_sampled = color_masked[idxs]
 
-    ret_dict = {}
-    ret_dict['point_clouds'] = cloud_sampled.astype(np.float32)
-    ret_dict['cloud_colors'] = color_sampled.astype(np.float32)
-    ret_dict['coordinates_for_voxel'] = cloud_sampled.astype(np.float32) / cfgs.voxel_size
-    
-    return ret_dict
-
-def main():
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
-
-    example_path = cfgs.example_path
-    if not example_path:
-         raise ValueError("Example path is not specified in arguments.")
-
-    # Load Data
-    print(f"Loading data from {example_path}...")
-    data_dict = load_data(example_path, num_points=cfgs.num_point)
-    
     # Prepare Batch
+    data_dict = {}
+    data_dict['point_clouds'] = cloud_sampled.astype(np.float32)
+    data_dict['cloud_colors'] = color_sampled.astype(np.float32)
+    
     batch_data = {}
     batch_data['point_clouds'] = torch.from_numpy(data_dict['point_clouds']).unsqueeze(0).to(device)
-    # coordinates_for_voxel must be a list of arrays/tensors for the model's collation logic
-    batch_data['coordinates_for_voxel'] = [torch.from_numpy(data_dict['coordinates_for_voxel']).to(device)]
+    batch_data['coordinates_for_voxel'] = [torch.from_numpy(data_dict['point_clouds'] / cfgs.voxel_size).to(device)]
     
-    # Initialize Model
-    print("Initializing model...")
-    net = economicgrasp(seed_feat_dim=512, is_training=False)
-    net.to(device)
-    
-    # Load Checkpoint
-    if cfgs.checkpoint_path is None:
-        raise ValueError("--checkpoint_path argument is required.")
-        
-    print(f"Loading checkpoint from {cfgs.checkpoint_path}...")
-    if not os.path.isfile(cfgs.checkpoint_path):
-        raise FileNotFoundError(f"Checkpoint file not found at {cfgs.checkpoint_path}")
+    return data_dict, batch_data
 
-    checkpoint = torch.load(cfgs.checkpoint_path, map_location=device)
-    net.load_state_dict(checkpoint['model_state_dict'])
-
-    net.eval()
-    
-    # Inference
+def get_grasps(net, batch_data):
     print("Running inference...")
     with torch.no_grad():
         end_points = net(batch_data)
@@ -128,32 +114,54 @@ def main():
     preds = grasp_preds[0].detach().cpu().numpy()
     gg = GraspGroup(preds)
     print(f"Raw grasps found: {len(gg)}")
+    return gg
 
-    # Collision Detection
+def collision_detection(gg, cloud):
     if cfgs.collision_thresh > 0:
         print("Running collision detection...")
-        cloud = data_dict['point_clouds']
         mfcdetector = ModelFreeCollisionDetector(cloud, voxel_size=cfgs.voxel_size)
         collision_mask = mfcdetector.detect(gg, approach_dist=0.05, collision_thresh=cfgs.collision_thresh)
         gg = gg[~collision_mask]
         print(f"Grasps after collision detection: {len(gg)}")
+    return gg
 
-
-    # NMS
-    print("Running NMS...")
-    gg = gg.nms()
-    gg = gg.sort_by_score() 
-    gg = gg[:50] # Top 50, adjustable
-    print(f"Final grasps to visualize: {len(gg)}")
-    
-    # Visualization
+def vis_grasps(gg, cloud, colors):
     print("Visualizing... (Close the window to exit)")
     grippers = gg.to_open3d_geometry_list()
     pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(data_dict['point_clouds'])
-    pcd.colors = o3d.utility.Vector3dVector(data_dict['cloud_colors'])
+    pcd.points = o3d.utility.Vector3dVector(cloud)
+    pcd.colors = o3d.utility.Vector3dVector(colors)
     
     o3d.visualization.draw_geometries([pcd, *grippers], window_name="EconomicGrasp Demo")
 
+def demo(example_path):
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+
+    # Load and process data
+    data_dict, batch_data = get_and_process_data(example_path, device, num_points=cfgs.num_point)
+
+    # Initialize model
+    net = get_net(device)
+    
+    # Get grasps
+    gg = get_grasps(net, batch_data)
+
+    # Collision detection
+    gg = collision_detection(gg, data_dict['point_clouds'])
+    
+    # NMS
+    print("Running NMS...")
+    gg = gg.nms()
+    gg = gg.sort_by_score()
+    gg = gg[:100]
+    print(f"Final grasps to visualize: {len(gg)}")
+
+    # Visualization
+    vis_grasps(gg, data_dict['point_clouds'], data_dict['cloud_colors'])
+
 if __name__ == '__main__':
-    main()
+    if not cfgs.example_path:
+         raise ValueError("Example path is not specified in arguments. Use --example_path")
+         
+    demo(cfgs.example_path)
