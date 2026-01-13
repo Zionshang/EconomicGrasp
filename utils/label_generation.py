@@ -11,10 +11,8 @@ import torch
 from libs.knn.knn_modules import knn
 from utils.loss_utils import (batch_viewpoint_params_to_matrix, transform_point_cloud,
                               generate_grasp_views, compute_pointwise_dists)
-from utils.arguments import cfgs
 
-
-def process_grasp_labels(end_points):
+def process_grasp_labels(end_points, num_view, grasp_max_width):
     """ Process labels according to scene points and object poses. """
     seed_xyzs = end_points['xyz_graspable']  # [B (batch size), 1024 (scene points after sample), 3]
     pred_top_view_inds = end_points['grasp_top_view_inds']  # [B (batch size), 1024 (scene points after sample)]
@@ -57,7 +55,7 @@ def process_grasp_labels(end_points):
             num_grasp_points = grasp_points.size(0)
 
             # generate and transform template grasp views
-            grasp_views = generate_grasp_views(cfgs.num_view).to(pose.device)  # [300 (views), 3 (coordinate)]
+            grasp_views = generate_grasp_views(num_view).to(pose.device)  # [300 (views), 3 (coordinate)]
             grasp_points_trans = transform_point_cloud(grasp_points, pose, '3x4')
             grasp_views_trans = transform_point_cloud(grasp_views, pose[:3, :3], '3x3')
             # [300 (views), 3 (coordinate)], after translation to scene coordinate system
@@ -141,7 +139,7 @@ def process_grasp_labels(end_points):
         # [1024 (points after sample)]
         top_grasp_scores = torch.zeros(num_samples, dtype=torch.float32).to(seed_xyz.device)
         # [1024 (points after sample)]
-        top_grasp_widths = cfgs.grasp_max_width * torch.ones(num_samples, dtype=torch.float32).to(seed_xyz.device)
+        top_grasp_widths = grasp_max_width * torch.ones(num_samples, dtype=torch.float32).to(seed_xyz.device)
         # [1024 (points after sample)]
         top_grasp_rotations[pid] = torch.gather(grasp_rotations_merged[pid], 1, vid.view(-1, 1)).squeeze(1)
         top_grasp_depth[pid] = torch.gather(grasp_depth_merged[pid], 1, vid.view(-1, 1)).squeeze(1)
@@ -193,6 +191,5 @@ def process_grasp_labels(end_points):
     end_points['batch_valid_mask'] = batch_valid_mask
     end_points['C: Valid Points'] = valid_points_count / batch_size
     return batch_grasp_views_rot, end_points
-
 
 

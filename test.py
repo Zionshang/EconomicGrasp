@@ -75,7 +75,7 @@ def inference():
         # Forward pass
         with torch.no_grad():
             end_points = net(batch_data)
-            grasp_preds = pred_decode(end_points)
+            grasp_preds = pred_decode(end_points, m_point=cfgs.m_point, grasp_max_width=cfgs.grasp_max_width)
 
         # Save results for evaluation
         for i in range(cfgs.batch_size):

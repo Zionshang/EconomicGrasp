@@ -108,7 +108,11 @@ class economicgrasp(nn.Module):
             # map the scene sampled points to the labeled object points
             # (note that the labeled object points and the sampled points
             # may not 100% match due to the sampling and argumentation)
-            grasp_top_views_rot, end_points = process_grasp_labels(end_points)
+            grasp_top_views_rot, end_points = process_grasp_labels(
+                end_points,
+                num_view=self.num_view,
+                grasp_max_width=cfgs.grasp_max_width,
+            )
         else:
             grasp_top_views_rot = end_points['grasp_top_view_rot']
 
@@ -124,7 +128,7 @@ class economicgrasp(nn.Module):
 
 
 # score cls
-def pred_decode(end_points):
+def pred_decode(end_points, m_point, grasp_max_width):
     batch_size = len(end_points['point_clouds'])
     grasp_preds = []
     for i in range(batch_size):
@@ -146,12 +150,12 @@ def pred_decode(end_points):
         grasp_depth = grasp_depth.view(-1, 1)
 
         grasp_width = 1.2 * end_points['grasp_width_pred'][i] / 10.
-        grasp_width = torch.clamp(grasp_width, min=0., max=cfgs.grasp_max_width)
+        grasp_width = torch.clamp(grasp_width, min=0., max=grasp_max_width)
         grasp_width = grasp_width.view(-1, 1)
 
         approaching = -end_points['grasp_top_view_xyz'][i].float()
         grasp_rot = batch_viewpoint_params_to_matrix(approaching, grasp_angle)
-        grasp_rot = grasp_rot.view(cfgs.m_point, 9)
+        grasp_rot = grasp_rot.view(m_point, 9)
 
         # merge preds
         grasp_height = 0.02 * torch.ones_like(grasp_score)

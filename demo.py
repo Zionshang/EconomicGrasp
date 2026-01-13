@@ -112,7 +112,7 @@ def get_grasps(net, batch_data):
     print("Running inference...")
     with torch.no_grad():
         end_points = net(batch_data)
-        grasp_preds = pred_decode(end_points)
+        grasp_preds = pred_decode(end_points, m_point=cfgs.m_point, grasp_max_width=cfgs.grasp_max_width)
         
     preds = grasp_preds[0].detach().cpu().numpy()
     gg = GraspGroup(preds)
