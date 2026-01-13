@@ -11,6 +11,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_root', default='/home/xiaoming/dataset/graspnet', help='the root of the GraspNet dataset')
 parser.add_argument('--camera_type', default='kinect', help='Camera split [realsense/kinect]')
+parser.add_argument('--grasp_max_width', type=float, default=0.1, help='The max width of the grasp [default: 0.1]')
 
 cfgs = parser.parse_args()
 
@@ -87,7 +88,7 @@ if __name__ == "__main__":
                 view_graspness_max - view_graspness_min + 1e-5)  # (Ns, V)
 
         # nomalize the score
-        label_mask = (scene_scores > 0) & (scene_width <= 0.1)
+        label_mask = (scene_scores > 0) & (scene_width <= cfgs.grasp_max_width)
         scene_scores[~label_mask] = 0
         po_mask = scene_scores > 0
         scene_scores[po_mask] = 1.1 - scene_scores[po_mask]

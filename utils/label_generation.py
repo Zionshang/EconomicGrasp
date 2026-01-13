@@ -141,7 +141,7 @@ def process_grasp_labels(end_points):
         # [1024 (points after sample)]
         top_grasp_scores = torch.zeros(num_samples, dtype=torch.float32).to(seed_xyz.device)
         # [1024 (points after sample)]
-        top_grasp_widths = 0.1 * torch.ones(num_samples, dtype=torch.float32).to(seed_xyz.device)
+        top_grasp_widths = cfgs.grasp_max_width * torch.ones(num_samples, dtype=torch.float32).to(seed_xyz.device)
         # [1024 (points after sample)]
         top_grasp_rotations[pid] = torch.gather(grasp_rotations_merged[pid], 1, vid.view(-1, 1)).squeeze(1)
         top_grasp_depth[pid] = torch.gather(grasp_depth_merged[pid], 1, vid.view(-1, 1)).squeeze(1)

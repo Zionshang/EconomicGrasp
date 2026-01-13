@@ -1,24 +1,27 @@
 import os
-import sys
+import argparse
 import numpy as np
 import scipy.io as scio
 from PIL import Image
 import torch
 import open3d as o3d
-
-# Satisfy strict args for utils.arguments if missing
-if '--dataset_root' not in sys.argv:
-    sys.argv.extend(['--dataset_root', 'dummy_root'])
-if '--camera' not in sys.argv:
-    sys.argv.extend(['--camera', 'kinect'])
-
-from utils.arguments import cfgs
 from models.economicgrasp import economicgrasp, pred_decode
 from utils.data_utils import CameraInfo, create_point_cloud_from_depth_image
 from graspnetAPI import GraspGroup
 from utils.collision_detector import ModelFreeCollisionDetector
 
-def get_net(device):
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="EconomicGrasp demo")
+    parser.add_argument('--checkpoint_path', required=True, help='Model checkpoint path')
+    parser.add_argument('--example_path', type=str, default='example_data', help='Path to example data for demo')
+    parser.add_argument('--num_point', type=int, default=20000, help='Point number [default: 20000]')
+    parser.add_argument('--voxel_size', type=float, default=0.005, help='Voxel size (in meters)')
+    parser.add_argument('--collision_thresh', type=float, default=0,
+                        help='Collision threshold in collision detection [default: 0], if used, set to 0.01')
+    return parser.parse_args()
+
+def get_net(device, cfgs):
     print("Initializing model...")
     net = economicgrasp(seed_feat_dim=512, is_training=False)
     net.to(device)
@@ -35,7 +38,7 @@ def get_net(device):
     net.eval()
     return net
 
-def get_and_process_data(example_path, device, num_points=20000):
+def get_and_process_data(example_path, device, cfgs, num_points=20000):
     print(f"Loading data from {example_path}...")
     color_path = os.path.join(example_path, 'color.png')
     depth_path = os.path.join(example_path, 'depth.png')
@@ -116,7 +119,7 @@ def get_grasps(net, batch_data):
     print(f"Raw grasps found: {len(gg)}")
     return gg
 
-def collision_detection(gg, cloud):
+def collision_detection(gg, cloud, cfgs):
     if cfgs.collision_thresh > 0:
         print("Running collision detection...")
         mfcdetector = ModelFreeCollisionDetector(cloud, voxel_size=cfgs.voxel_size)
@@ -134,21 +137,21 @@ def vis_grasps(gg, cloud, colors):
     
     o3d.visualization.draw_geometries([pcd, *grippers], window_name="EconomicGrasp Demo")
 
-def demo(example_path):
+def demo(example_path, cfgs):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
     # Load and process data
-    data_dict, batch_data = get_and_process_data(example_path, device, num_points=cfgs.num_point)
+    data_dict, batch_data = get_and_process_data(example_path, device, cfgs, num_points=cfgs.num_point)
 
     # Initialize model
-    net = get_net(device)
+    net = get_net(device, cfgs)
     
     # Get grasps
     gg = get_grasps(net, batch_data)
 
     # Collision detection
-    gg = collision_detection(gg, data_dict['point_clouds'])
+    gg = collision_detection(gg, data_dict['point_clouds'], cfgs)
     
     # NMS
     print("Running NMS...")
@@ -161,7 +164,5 @@ def demo(example_path):
     vis_grasps(gg, data_dict['point_clouds'], data_dict['cloud_colors'])
 
 if __name__ == '__main__':
-    if not cfgs.example_path:
-         raise ValueError("Example path is not specified in arguments. Use --example_path")
-         
-    demo(cfgs.example_path)
+    cfgs = parse_args()
+    demo(cfgs.example_path, cfgs)

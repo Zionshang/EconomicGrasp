@@ -68,13 +68,12 @@ cd libs/knn
 python setup.py install
 ```
 
-#### GraspNetAPI 
+#### GraspNetAPI (only for evaluation)
 
-Install graspnetAPI for evaluation. (if you download the previous version of graspnetAPI, change the numpy version to 1.23.4 or redownload it)
+Install graspnetAPI for evaluation.
 
 ```bash
-git clone https://github.com/graspnet/graspnetAPI.git
-cd graspnetAPI
+cd libs/graspnetAPI
 pip install .
 ```
 
@@ -93,7 +92,7 @@ After generating the graspness, we can generate our economic supervision.
 
 ```bash
 cd dataset
-python generate_economic.py --dataset_root /home/xiaoming/dataset/graspnet --camera_type kinect
+python generate_economic.py --dataset_root /home/xiaoming/dataset/graspnet --camera_type realsense --grasp_max_width 0.85
 ```
 
 ### Training
@@ -121,6 +120,21 @@ CUDA_VISIBLE_DEVICES=1 python test.py --model economicgrasp --save_dir results/e
 CUDA_VISIBLE_DEVICES=2 python test.py --model economicgrasp --save_dir results/economicgrasp/test_ep10_novel --checkpoint_path results/economicgrasp/economicgrasp_epoch10.tar --camera kinect --dataset_root /home/xiaoming/dataset/graspnet --test_mode novel --inference
 
 ```
+
+### Demo
+
+Run the demo with a pretrained checkpoint and example data. The demo reads an example folder containing
+`color.png`, `depth.png`, and optionally `meta.mat` (camera intrinsics) and `workspace_mask.png`.
+
+```bash
+python demo.py \
+  --checkpoint_path /path/to/economicgrasp_kinect.tar \
+  --example_path example_data
+```
+
+Notes:
+- `--checkpoint_path` is required.
+- Optional flags: `--num_point`, `--voxel_size`, `--collision_thresh`.
 
 ## Results
 
