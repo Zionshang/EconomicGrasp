@@ -20,7 +20,16 @@ def parse_args():
 
 def get_net(device, args):
     print("Initializing model...")
-    net = economicgrasp(seed_feat_dim=512, is_training=False)
+    net = economicgrasp(
+        seed_feat_dim=512,
+        is_training=False,
+        num_depth=cfgs.num_depth,
+        num_angle=cfgs.num_angle,
+        m_point=cfgs.m_point,
+        num_view=cfgs.num_view,
+        graspness_threshold=cfgs.graspness_threshold,
+        grasp_max_width=cfgs.grasp_max_width,
+    )
     net.to(device)
     
     if args.checkpoint_path is None:
@@ -35,7 +44,7 @@ def get_net(device, args):
     net.eval()
     return net
 
-def get_and_process_data(example_path, device, num_points=20000):
+def get_and_process_data(example_path, device, num_points=20000, voxel_size=0.005):
     print(f"Loading data from {example_path}...")
     color_path = os.path.join(example_path, 'color.png')
     depth_path = os.path.join(example_path, 'depth.png')
@@ -101,26 +110,26 @@ def get_and_process_data(example_path, device, num_points=20000):
     
     batch_data = {}
     batch_data['point_clouds'] = torch.from_numpy(data_dict['point_clouds']).unsqueeze(0).to(device)
-    batch_data['coordinates_for_voxel'] = [torch.from_numpy(data_dict['point_clouds'] / cfgs.voxel_size).to(device)]
+    batch_data['coordinates_for_voxel'] = [torch.from_numpy(data_dict['point_clouds'] / voxel_size).to(device)]
     
     return data_dict, batch_data
 
-def get_grasps(net, batch_data):
+def get_grasps(net, batch_data, m_point, grasp_max_width):
     print("Running inference...")
     with torch.no_grad():
         end_points = net(batch_data)
-        grasp_preds = pred_decode(end_points, m_point=cfgs.m_point, grasp_max_width=cfgs.grasp_max_width)
+        grasp_preds = pred_decode(end_points, m_point=m_point, grasp_max_width=grasp_max_width)
         
     preds = grasp_preds[0].detach().cpu().numpy()
     gg = GraspGroup(preds)
     print(f"Raw grasps found: {len(gg)}")
     return gg
 
-def collision_detection(gg, cloud, cfgs):
-    if cfgs.collision_thresh > 0:
+def collision_detection(gg, cloud, voxel_size, collision_thresh):
+    if collision_thresh > 0:
         print("Running collision detection...")
-        mfcdetector = ModelFreeCollisionDetector(cloud, voxel_size=cfgs.voxel_size)
-        collision_mask = mfcdetector.detect(gg, approach_dist=0.05, collision_thresh=cfgs.collision_thresh)
+        mfcdetector = ModelFreeCollisionDetector(cloud, voxel_size=voxel_size)
+        collision_mask = mfcdetector.detect(gg, approach_dist=0.05, collision_thresh=collision_thresh)
         gg = gg[~collision_mask]
         print(f"Grasps after collision detection: {len(gg)}")
     return gg
@@ -137,18 +146,28 @@ def vis_grasps(gg, cloud, colors):
 def demo(example_path, args):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
+    num_point = cfgs.num_point
+    voxel_size = cfgs.voxel_size
+    m_point = cfgs.m_point
+    grasp_max_width = cfgs.grasp_max_width
+    collision_thresh = cfgs.collision_thresh
 
     # Load and process data
-    data_dict, batch_data = get_and_process_data(example_path, device, num_points=cfgs.num_point)
+    data_dict, batch_data = get_and_process_data(
+        example_path,
+        device,
+        num_points=num_point,
+        voxel_size=voxel_size,
+    )
 
     # Initialize model
     net = get_net(device, args)
     
     # Get grasps
-    gg = get_grasps(net, batch_data)
+    gg = get_grasps(net, batch_data, m_point=m_point, grasp_max_width=grasp_max_width)
 
     # Collision detection
-    gg = collision_detection(gg, data_dict['point_clouds'], cfgs)
+    gg = collision_detection(gg, data_dict['point_clouds'], voxel_size, collision_thresh)
     
     # NMS
     print("Running NMS...")

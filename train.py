@@ -52,6 +52,9 @@ def log_string(out_str):
 
 
 # Init datasets and dataloaders
+num_point = cfgs.num_point
+voxel_size = cfgs.voxel_size
+batch_size = cfgs.batch_size
 def my_worker_init_fn(worker_id):
     np.random.seed(np.random.get_state()[1][0] + worker_id)
     pass
@@ -59,19 +62,30 @@ def my_worker_init_fn(worker_id):
 
 # Create Dataset and Dataloader
 TRAIN_DATASET = GraspNetDataset(args.dataset_root, camera=args.camera, split='train',
-                                voxel_size=cfgs.voxel_size, num_points=cfgs.num_point, remove_outlier=True,
+                                voxel_size=voxel_size, num_points=num_point, remove_outlier=True,
                                 augment=True)
-TRAIN_DATALOADER = DataLoader(TRAIN_DATASET, batch_size=cfgs.batch_size, shuffle=True,
+TRAIN_DATALOADER = DataLoader(TRAIN_DATASET, batch_size=batch_size, shuffle=True,
                               num_workers=2, worker_init_fn=my_worker_init_fn, collate_fn=collate_fn)
 
 # Init the model
-net = economicgrasp(seed_feat_dim=512, is_training=True)
+net = economicgrasp(
+    seed_feat_dim=512,
+    is_training=True,
+    num_depth=cfgs.num_depth,
+    num_angle=cfgs.num_angle,
+    m_point=cfgs.m_point,
+    num_view=cfgs.num_view,
+    graspness_threshold=cfgs.graspness_threshold,
+    grasp_max_width=cfgs.grasp_max_width,
+)
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 net.to(device)
 
 # Load the Adam optimizer
-optimizer = optim.Adam(net.parameters(), lr=cfgs.learning_rate, weight_decay=cfgs.weight_decay)
+learning_rate = cfgs.learning_rate
+weight_decay = cfgs.weight_decay
+optimizer = optim.Adam(net.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
 # Load checkpoint if there is any
 start_epoch = 0
@@ -85,7 +99,7 @@ if CHECKPOINT_PATH is not None and os.path.isfile(CHECKPOINT_PATH):
 
 # cosine learning rate decay
 def get_current_lr(epoch):
-    lr = cfgs.learning_rate
+    lr = learning_rate
     lr = lr * (math.cos(epoch / cfgs.max_epoch * math.pi) + 1) * 0.5
     return lr
 

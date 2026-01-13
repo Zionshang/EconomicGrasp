@@ -7,18 +7,29 @@ from models.backbone import TDUnet
 from models.modules_economicgrasp import GraspableNet, ViewNet, Cylinder_Grouping_Global_Interaction, Grasp_Head_Local_Interaction
 from utils.label_generation import process_grasp_labels, batch_viewpoint_params_to_matrix
 from libs.pointnet2.pointnet2_utils import furthest_point_sample, gather_operation
-from utils.arguments import cfgs
-
-
 class economicgrasp(nn.Module):
-    def __init__(self, cylinder_radius=0.05, seed_feat_dim=512, is_training=True, voxel_size=0.005):
+    def __init__(
+        self,
+        cylinder_radius=0.05,
+        seed_feat_dim=512,
+        is_training=True,
+        voxel_size=0.005,
+        num_depth=4,
+        num_angle=12,
+        m_point=1024,
+        num_view=300,
+        graspness_threshold=0.1,
+        grasp_max_width=0.1,
+    ):
         super().__init__()
         self.is_training = is_training
         self.seed_feature_dim = seed_feat_dim
-        self.num_depth = cfgs.num_depth
-        self.num_angle = cfgs.num_angle
-        self.M_points = cfgs.m_point
-        self.num_view = cfgs.num_view
+        self.num_depth = num_depth
+        self.num_angle = num_angle
+        self.M_points = m_point
+        self.num_view = num_view
+        self.graspness_threshold = graspness_threshold
+        self.grasp_max_width = grasp_max_width
         self.voxel_size = voxel_size
 
         # Backbone
@@ -68,7 +79,7 @@ class economicgrasp(nn.Module):
         graspness_score = end_points['graspness_score'].squeeze(1)  # [B (batch size), 20000 (points in a scene)]
         objectness_pred = torch.argmax(objectness_score, 1)
         objectness_mask = (objectness_pred == 1)
-        graspness_mask = graspness_score > cfgs.graspness_threshold
+        graspness_mask = graspness_score > self.graspness_threshold
         graspable_mask = objectness_mask & graspness_mask
 
         # Generate the downsample point (1024 per scene) using the furthest point sampling
@@ -111,7 +122,7 @@ class economicgrasp(nn.Module):
             grasp_top_views_rot, end_points = process_grasp_labels(
                 end_points,
                 num_view=self.num_view,
-                grasp_max_width=cfgs.grasp_max_width,
+                grasp_max_width=self.grasp_max_width,
             )
         else:
             grasp_top_views_rot = end_points['grasp_top_view_rot']

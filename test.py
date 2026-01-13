@@ -39,25 +39,38 @@ def my_worker_init_fn(worker_id):
 
 
 # Create dataset and dataloader
+num_point = cfgs.num_point
+batch_size = cfgs.batch_size
+voxel_size = cfgs.voxel_size
+collision_thresh = cfgs.collision_thresh
 if args.test_mode == 'seen':
     TEST_DATASET = GraspNetDataset(args.dataset_root, split='test_seen',
-                                   camera=args.camera, num_points=cfgs.num_point, remove_outlier=True, augment=False,
+                                   camera=args.camera, num_points=num_point, remove_outlier=True, augment=False,
                                    load_label=False)
 elif args.test_mode == 'similar':
     TEST_DATASET = GraspNetDataset(args.dataset_root, split='test_similar',
-                                   camera=args.camera, num_points=cfgs.num_point, remove_outlier=True, augment=False,
+                                   camera=args.camera, num_points=num_point, remove_outlier=True, augment=False,
                                    load_label=False)
 elif args.test_mode == 'novel':
     TEST_DATASET = GraspNetDataset(args.dataset_root, split='test_novel',
-                                   camera=args.camera, num_points=cfgs.num_point, remove_outlier=True, augment=False,
+                                   camera=args.camera, num_points=num_point, remove_outlier=True, augment=False,
                                    load_label=False)
 
 SCENE_LIST = TEST_DATASET.scene_list()
-TEST_DATALOADER = DataLoader(TEST_DATASET, batch_size=cfgs.batch_size, shuffle=False,
+TEST_DATALOADER = DataLoader(TEST_DATASET, batch_size=batch_size, shuffle=False,
                              num_workers=2, worker_init_fn=my_worker_init_fn, collate_fn=collate_fn)
 
 # Init the model
-net = economicgrasp(seed_feat_dim=512, is_training=False)
+net = economicgrasp(
+    seed_feat_dim=512,
+    is_training=False,
+    num_depth=cfgs.num_depth,
+    num_angle=cfgs.num_angle,
+    m_point=cfgs.m_point,
+    num_view=cfgs.num_view,
+    graspness_threshold=cfgs.graspness_threshold,
+    grasp_max_width=cfgs.grasp_max_width,
+)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 net.to(device)
 
@@ -93,16 +106,16 @@ def inference():
             grasp_preds = pred_decode(end_points, m_point=cfgs.m_point, grasp_max_width=cfgs.grasp_max_width)
 
         # Save results for evaluation
-        for i in range(cfgs.batch_size):
-            data_idx = batch_idx * cfgs.batch_size + i
+        for i in range(batch_size):
+            data_idx = batch_idx * batch_size + i
             preds = grasp_preds[i].detach().cpu().numpy()
             gg = GraspGroup(preds)
 
             # collision detection
-            if cfgs.collision_thresh > 0:
+            if collision_thresh > 0:
                 cloud, _ = TEST_DATASET.get_data(data_idx, return_raw_cloud=True)
-                mfcdetector = ModelFreeCollisionDetector(cloud, voxel_size=cfgs.voxel_size)
-                collision_mask = mfcdetector.detect(gg, approach_dist=0.05, collision_thresh=cfgs.collision_thresh)
+                mfcdetector = ModelFreeCollisionDetector(cloud, voxel_size=voxel_size)
+                collision_mask = mfcdetector.detect(gg, approach_dist=0.05, collision_thresh=collision_thresh)
                 gg = gg[~collision_mask]
 
             # save grasps
