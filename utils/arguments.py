@@ -1,13 +1,6 @@
 import argparse
 
-parser = argparse.ArgumentParser()
-
-# data relevant
-parser.add_argument('--dataset_root', required=True, help='Dataset root')
-parser.add_argument('--camera', required=True, help='Camera split [realsense/kinect]')
-
-# log
-parser.add_argument('--log_dir', default='log', help='Dump dir to save model checkpoint [default: log]')
+parser = argparse.ArgumentParser(add_help=False)
 
 # model setting
 parser.add_argument('--model', type=str, default='graspness', help='graspnessp')
@@ -31,8 +24,11 @@ parser.add_argument('--depth_loss_weight', type=float, default=1, help='Loss wei
 parser.add_argument('--score_loss_weight', type=float, default=1, help='Loss weight of the score term')
 parser.add_argument('--width_loss_weight', type=float, default=10, help='Loss weight of the width term')
 
+#
+# NOTE: Dataset/log/checkpoint/test/demo CLI arguments are parsed locally in the
+#       corresponding scripts to avoid global coupling.
+#
 # training setting
-parser.add_argument('--checkpoint_path', default=None, help='Model checkpoint path [default: None]')
 parser.add_argument('--resume', action='store_true', help='Whether to resume from checkpoint')
 parser.add_argument('--max_epoch', type=int, default=20, help='Epoch to run [default: 18]')
 parser.add_argument('--batch_size', type=int, default=4, help='Batch Size during training [default: 2]')
@@ -41,11 +37,7 @@ parser.add_argument('--weight_decay', type=float, default=0, help='Optimization 
 parser.add_argument('--voxel_size', type=float, default=0.005, help='Voxel size (in metters)')
 
 # testing setting
-parser.add_argument('--save_dir', type=str, help='Dir to save outputs')
-parser.add_argument('--test_mode', type=str, help='Mode of the testing (seen, similar, novel)')
 parser.add_argument('--collision_thresh', type=float, default=0,
                     help='Collision threshold in collision detection [default: 0], if used, set to 0.01')
-parser.add_argument('--inference', action='store_true', help='Whether to inference')
-parser.add_argument('--example_path', type=str, default='example_data', help='Path to example data for demo')
 
-cfgs = parser.parse_args()
+cfgs, _ = parser.parse_known_args()

@@ -1,5 +1,6 @@
 # Basic Libraries
 import os
+import argparse
 import numpy as np
 import math
 import time
@@ -17,18 +18,30 @@ from models.economicgrasp import economicgrasp
 from models.loss_economicgrasp import get_loss as get_loss_economicgrasp
 from dataset.graspnet_dataset import GraspNetDataset, collate_fn
 
+def parse_args():
+    parser = argparse.ArgumentParser(description='EconomicGrasp training')
+    parser.add_argument('--dataset_root', required=True, help='Dataset root')
+    parser.add_argument('--camera', required=True, help='Camera split [realsense/kinect]')
+    parser.add_argument('--log_dir', default='log', help='Dump dir to save model checkpoint [default: log]')
+    parser.add_argument('--checkpoint_path', default=None, help='Model checkpoint path [default: None]')
+    args, _ = parser.parse_known_args()
+    return args
+
+
+args = parse_args()
+
 # ----------- GLOBAL CONFIG ------------
 
 # Epoch
 EPOCH_CNT = 0
 
 # Checkpoint path
-CHECKPOINT_PATH = cfgs.checkpoint_path if cfgs.checkpoint_path is not None and cfgs.resume else None
+CHECKPOINT_PATH = args.checkpoint_path if args.checkpoint_path is not None and cfgs.resume else None
 
 # Logging
-if not os.path.exists(cfgs.log_dir):
-    os.makedirs(cfgs.log_dir)
-LOG_FOUT = open(os.path.join(cfgs.log_dir, 'log_train.txt'), 'a')
+if not os.path.exists(args.log_dir):
+    os.makedirs(args.log_dir)
+LOG_FOUT = open(os.path.join(args.log_dir, 'log_train.txt'), 'a')
 LOG_FOUT.write(str(cfgs) + '\n')
 
 
@@ -45,7 +58,7 @@ def my_worker_init_fn(worker_id):
 
 
 # Create Dataset and Dataloader
-TRAIN_DATASET = GraspNetDataset(cfgs.dataset_root, camera=cfgs.camera, split='train',
+TRAIN_DATASET = GraspNetDataset(args.dataset_root, camera=args.camera, split='train',
                                 voxel_size=cfgs.voxel_size, num_points=cfgs.num_point, remove_outlier=True,
                                 augment=True)
 TRAIN_DATALOADER = DataLoader(TRAIN_DATASET, batch_size=cfgs.batch_size, shuffle=True,
@@ -159,7 +172,7 @@ def train(start_epoch):
             save_dict['model_state_dict'] = net.module.state_dict()
         except:
             save_dict['model_state_dict'] = net.state_dict()
-        torch.save(save_dict, os.path.join(cfgs.log_dir, cfgs.model + '_epoch' + str(epoch + 1).zfill(2) + '.tar'))
+        torch.save(save_dict, os.path.join(args.log_dir, cfgs.model + '_epoch' + str(epoch + 1).zfill(2) + '.tar'))
 
 
 if __name__ == '__main__':

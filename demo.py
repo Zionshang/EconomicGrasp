@@ -6,6 +6,7 @@ from PIL import Image
 import torch
 import open3d as o3d
 from models.economicgrasp import economicgrasp, pred_decode
+from utils.arguments import cfgs
 from utils.data_utils import CameraInfo, create_point_cloud_from_depth_image
 from graspnetAPI import GraspGroup
 from utils.collision_detector import ModelFreeCollisionDetector
@@ -15,30 +16,26 @@ def parse_args():
     parser = argparse.ArgumentParser(description="EconomicGrasp demo")
     parser.add_argument('--checkpoint_path', required=True, help='Model checkpoint path')
     parser.add_argument('--example_path', type=str, default='example_data', help='Path to example data for demo')
-    parser.add_argument('--num_point', type=int, default=20000, help='Point number [default: 20000]')
-    parser.add_argument('--voxel_size', type=float, default=0.005, help='Voxel size (in meters)')
-    parser.add_argument('--collision_thresh', type=float, default=0,
-                        help='Collision threshold in collision detection [default: 0], if used, set to 0.01')
     return parser.parse_args()
 
-def get_net(device, cfgs):
+def get_net(device, args):
     print("Initializing model...")
     net = economicgrasp(seed_feat_dim=512, is_training=False)
     net.to(device)
     
-    if cfgs.checkpoint_path is None:
+    if args.checkpoint_path is None:
         raise ValueError("--checkpoint_path argument is required.")
         
-    print(f"Loading checkpoint from {cfgs.checkpoint_path}...")
-    if not os.path.isfile(cfgs.checkpoint_path):
-        raise FileNotFoundError(f"Checkpoint file not found at {cfgs.checkpoint_path}")
+    print(f"Loading checkpoint from {args.checkpoint_path}...")
+    if not os.path.isfile(args.checkpoint_path):
+        raise FileNotFoundError(f"Checkpoint file not found at {args.checkpoint_path}")
 
-    checkpoint = torch.load(cfgs.checkpoint_path, map_location=device)
+    checkpoint = torch.load(args.checkpoint_path, map_location=device)
     net.load_state_dict(checkpoint['model_state_dict'])
     net.eval()
     return net
 
-def get_and_process_data(example_path, device, cfgs, num_points=20000):
+def get_and_process_data(example_path, device, num_points=20000):
     print(f"Loading data from {example_path}...")
     color_path = os.path.join(example_path, 'color.png')
     depth_path = os.path.join(example_path, 'depth.png')
@@ -137,15 +134,15 @@ def vis_grasps(gg, cloud, colors):
     
     o3d.visualization.draw_geometries([pcd, *grippers], window_name="EconomicGrasp Demo")
 
-def demo(example_path, cfgs):
+def demo(example_path, args):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
     # Load and process data
-    data_dict, batch_data = get_and_process_data(example_path, device, cfgs, num_points=cfgs.num_point)
+    data_dict, batch_data = get_and_process_data(example_path, device, num_points=cfgs.num_point)
 
     # Initialize model
-    net = get_net(device, cfgs)
+    net = get_net(device, args)
     
     # Get grasps
     gg = get_grasps(net, batch_data)
@@ -164,5 +161,5 @@ def demo(example_path, cfgs):
     vis_grasps(gg, data_dict['point_clouds'], data_dict['cloud_colors'])
 
 if __name__ == '__main__':
-    cfgs = parse_args()
-    demo(cfgs.example_path, cfgs)
+    args = parse_args()
+    demo(args.example_path, args)
