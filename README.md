@@ -97,10 +97,13 @@ python generate_economic.py --dataset_root /home/xiaoming/dataset/graspnet --cam
 
 ### Training
 
-Then we can train our model.
+Then we can train our model. Global hyperparameters live in `config/default.yaml` (edit as needed).
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 python train.py --model economicgrasp --camera kinect --log_dir results/economicgrasp --max_epoch 10 --batch_size 4 --dataset_root /home/xiaoming/dataset/graspnet
+CUDA_VISIBLE_DEVICES=0 python train.py \
+  --dataset_root /home/xiaoming/dataset/graspnet \
+  --camera realsense \
+  --log_dir results/economicgrasp
 ```
 
 ### Testing
@@ -113,11 +116,29 @@ For testing, there are seen, similar, novel settings.
 
 ```bash
 # seen
-CUDA_VISIBLE_DEVICES=0 python test.py --model economicgrasp --save_dir results/economicgrasp/test_ep10_seen --checkpoint_path results/economicgrasp/economicgrasp_epoch10.tar --camera kinect --dataset_root /home/xiaoming/dataset/graspnet --test_mode seen --inference
+CUDA_VISIBLE_DEVICES=0 python test.py \
+  --save_dir results/economicgrasp/test_ep10_seen \
+  --checkpoint_path results/economicgrasp/economicgrasp_epoch10.tar \
+  --camera realsense \
+  --dataset_root /home/xiaoming/dataset/graspnet \
+  --test_mode seen \
+  --inference
 # similar
-CUDA_VISIBLE_DEVICES=1 python test.py --model economicgrasp --save_dir results/economicgrasp/test_ep10_similar --checkpoint_path results/economicgrasp/economicgrasp_epoch10.tar --camera kinect --dataset_root /home/xiaoming/dataset/graspnet --test_mode similar --inference
+CUDA_VISIBLE_DEVICES=1 python test.py \
+  --save_dir results/economicgrasp/test_ep10_similar \
+  --checkpoint_path results/economicgrasp/economicgrasp_epoch10.tar \
+  --camera realsense \
+  --dataset_root /home/xiaoming/dataset/graspnet \
+  --test_mode similar \
+  --inference
 # novel
-CUDA_VISIBLE_DEVICES=2 python test.py --model economicgrasp --save_dir results/economicgrasp/test_ep10_novel --checkpoint_path results/economicgrasp/economicgrasp_epoch10.tar --camera kinect --dataset_root /home/xiaoming/dataset/graspnet --test_mode novel --inference
+CUDA_VISIBLE_DEVICES=2 python test.py \
+  --save_dir results/economicgrasp/test_ep10_novel \
+  --checkpoint_path results/economicgrasp/economicgrasp_epoch10.tar \
+  --camera kinect \
+  --dataset_root /home/xiaoming/dataset/graspnet \
+  --test_mode novel \
+  --inference
 
 ```
 
@@ -134,7 +155,7 @@ python demo.py \
 
 Notes:
 - `--checkpoint_path` is required.
-- Optional flags: `--num_point`, `--voxel_size`, `--collision_thresh`.
+- Other parameters (e.g., `num_point`, `voxel_size`, `collision_thresh`) are set in `config/default.yaml`.
 
 ## Results
 
