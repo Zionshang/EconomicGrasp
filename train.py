@@ -186,7 +186,10 @@ def train(start_epoch):
             save_dict['model_state_dict'] = net.module.state_dict()
         except:
             save_dict['model_state_dict'] = net.state_dict()
-        torch.save(save_dict, os.path.join(args.log_dir, cfgs.model + '_epoch' + str(epoch + 1).zfill(2) + '.tar'))
+        torch.save(
+            save_dict,
+            os.path.join(args.log_dir, cfgs.model_name + '_epoch' + str(epoch + 1).zfill(2) + '.tar'),
+        )
 
 
 if __name__ == '__main__':
